@@ -1,0 +1,337 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USERS & AUTHENTICATION
+// ============================================================
+
+model User {
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique @db.VarChar(255)
+  passwordHash          String                 @db.VarChar(255)
+  name                  String?                @db.VarChar(255)
+  phone                 String?                @db.VarChar(20)
+  gender                String?                // "M", "F", "Other"
+  isEmailVerified       Boolean                @default(false)
+  emailVerificationCode String?
+  emailVerificationCodeExpires DateTime?
+
+  subscriptionTier      String                 @default("free") // "free", "premium_monthly", "premium_yearly"
+  subscriptionExpiresAt DateTime?
+
+  lastLoginAt           DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  // Relations
+  kundalis              Kundali[]
+  chatSessions          ChatSession[]
+  milanResults          Milan[]
+  reports               Report[]
+  pujaRecommendations   PujaRecommendation[]
+  subscriptions         Subscription[]
+  passwordResets        PasswordReset[]
+
+  @@index([email])
+  @@index([subscriptionTier])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ============================================================
+// KUNDALI (BIRTH CHARTS)
+// ============================================================
+
+model Kundali {
+  id              String @id @default(cuid())
+  userId          String
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name            String? @db.VarChar(255) // E.g., "My Birth Chart"
+  birthDate       DateTime @db.Date
+  birthTime       DateTime @db.Time
+  birthPlace      String  @db.VarChar(255)
+  latitude        Float
+  longitude       Float
+  timezoneOffset  Float
+
+  // Chart data as JSON
+  kundaliD1       Json   @db.JsonB // D1 chart with planet positions
+  kundaliD9       Json?  @db.JsonB // D9 (Navamsa) chart
+  houseSignings   Json?  @db.JsonB // House placements
+
+  isSaved         Boolean @default(true)
+  isPublic        Boolean @default(false)
+  calculatedAt    DateTime @default(now())
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  planetaryPositions PlanetaryPosition[]
+  chatSessions   ChatSession[]
+  milanResults   Milan[]
+  reports        Report[]
+  pujaRecommendations PujaRecommendation[]
+
+  @@index([userId])
+  @@index([birthDate])
+  @@unique([userId, birthDate, birthTime, latitude, longitude]) // Prevent duplicate charts
+}
+
+// ============================================================
+// PLANETARY POSITIONS
+// ============================================================
+
+model PlanetaryPosition {
+  id            String @id @default(cuid())
+  kundaliId     String
+  kundali       Kundali @relation(fields: [kundaliId], references: [id], onDelete: Cascade)
+
+  planetId      String // "sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu"
+  sign          String // Zodiac sign: "aries", "taurus", ..., "pisces"
+  degree        Float // 0-30 degrees
+  house         Int // 1-12
+  retrograde    Boolean @default(false)
+
+  nakshatra     String? // Lunar mansion
+  nakshataraAda Int? // Pada 1-4
+  speed         Float? // Movement speed
+
+  aspects       Json? @db.JsonB // Planetary aspects
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([kundaliId])
+  @@index([planetId])
+}
+
+// ============================================================
+// MILAN (COMPATIBILITY MATCHING)
+// ============================================================
+
+model Milan {
+  id                  String @id @default(cuid())
+  user1Id             String
+  user2Id             String
+  user1KundaliId      String
+  user2KundaliId      String
+
+  kundaliUser1        Kundali @relation("MilanUser1", fields: [user1KundaliId], references: [id], onDelete: Cascade)
+  kundaliUser2        Kundali @relation("MilanUser2", fields: [user2KundaliId], references: [id], onDelete: Cascade)
+
+  gunaScore           Int // 0-36
+  compatibilityScore  Float? // Percentage or rating
+
+  // 8 Koots breakdown (JSON)
+  gunaBreakdown       Json @db.JsonB // { varna, vasya, tara, yoni, graha_maitri, bhakut, nadi }
+
+  // Mangal Dosha analysis
+  mangalDosha         Json? @db.JsonB // { present, severity, remedy }
+
+  // Detailed analysis
+  strengthAreas       String[]
+  cautionAreas        String[]
+  overallRating       Float? // 1-5 stars
+  interpretations     Json?  @db.JsonB // AI-generated insights
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([gunaScore])
+}
+
+// ============================================================
+// AI CHAT & CONVERSATIONS
+// ============================================================
+
+model ChatSession {
+  id              String @id @default(cuid())
+  userId          String
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kundaliId       String?
+  kundali         Kundali? @relation(fields: [kundaliId], references: [id], onDelete: SetNull)
+
+  title           String @db.VarChar(255)
+  systemPrompt    String? @db.Text // System prompt used for this session
+
+  messages        ChatMessage[]
+  totalTokensUsed Int @default(0) // For cost tracking
+  totalCost       Float @default(0) // Estimated cost in USD
+
+  isPinned        Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([kundaliId])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id              String @id @default(cuid())
+  sessionId       String
+  session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  role            String // "user" or "assistant"
+  content         String @db.Text
+  tokensUsed      Int @default(0)
+
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// REPORTS
+// ============================================================
+
+model Report {
+  id              String @id @default(cuid())
+  userId          String
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kundaliId       String
+  kundali         Kundali @relation(fields: [kundaliId], references: [id], onDelete: Cascade)
+
+  reportType      String // "basic_kundali", "detailed_analysis", "puja_recommendation", "dasha_timeline"
+  tier            String // "free", "premium"
+
+  title           String @db.VarChar(255)
+  content         Json?  @db.JsonB // Report data (can be JSON or file URL)
+  contentUrl      String? // S3 or storage URL
+
+  generatedAt     DateTime @default(now())
+  expiresAt       DateTime? // Time-limited reports
+  downloadCount   Int @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([kundaliId])
+  @@index([reportType])
+  @@index([tier])
+}
+
+// ============================================================
+// PUJA RECOMMENDATIONS
+// ============================================================
+
+model PujaRecommendation {
+  id              String @id @default(cuid())
+  kundaliId       String
+  kundali         Kundali @relation(fields: [kundaliId], references: [id], onDelete: Cascade)
+
+  userId          String
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  pujaName        String @db.VarChar(255)
+  reason          String @db.Text // Why this puja is recommended
+  timing          String @db.Text // Auspicious timing
+  description     String @db.Text
+  estimatedCost   Float?
+
+  providerId      String? // For Phase 2: link to external provider
+  bookingUrl      String? // URL to book puja
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([kundaliId])
+  @@index([userId])
+}
+
+// ============================================================
+// SUBSCRIPTIONS & PAYMENTS
+// ============================================================
+
+model Subscription {
+  id                    String @id @default(cuid())
+  userId                String @unique
+  user                  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  planType              String // "free", "premium_monthly", "premium_yearly"
+  status                String @default("active") // "active", "cancelled", "expired"
+
+  stripeSubscriptionId  String? @unique
+  stripeCustomerId      String?
+
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+
+  isTrial               Boolean @default(false)
+  trialEndsAt           DateTime?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Payment {
+  id                    String @id @default(cuid())
+  userId                String
+  amount                Float
+  currency              String @default("USD")
+  paymentType           String // "subscription", "report", "puja_booking"
+  status                String @default("pending") // "pending", "completed", "failed"
+
+  stripePaymentId       String? @unique
+  stripeInvoiceId       String?
+
+  description           String? @db.Text
+  metadata              Json? @db.JsonB // Additional data
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================================
+// AUDIT & LOGGING
+// ============================================================
+
+model AuditLog {
+  id                String @id @default(cuid())
+  userId            String?
+  action            String // "login", "kundali_created", "chat_message", etc.
+  resource          String? // "kundali", "chat", "payment", etc.
+  resourceId        String?
+  details           Json?  @db.JsonB
+  ipAddress         String?
+  userAgent         String?
+
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
