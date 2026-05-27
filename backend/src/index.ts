@@ -40,6 +40,8 @@ app.get('/health', (req, res) => {
   });
 });
 
+import milanRoutes from './routes/milan.routes';
+
 // ============================================================
 // API ROUTES (To be implemented)
 // ============================================================
@@ -51,7 +53,7 @@ app.get('/health', (req, res) => {
 // app.use('/api/kundali', kundaliRoutes);
 
 // Milan routes
-// app.use('/api/milan', milanRoutes);
+app.use('/api/milan', milanRoutes);
 
 // Chat routes
 // app.use('/api/chat', chatRoutes);

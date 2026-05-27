@@ -4,34 +4,85 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 263 70% 50%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --radius: 0.5rem;
+    --cosmic-950: #0b111a;
+    --cosmic-900: #1b2633;
+    --cosmic-800: #2f4151;
+    --cosmic-700: #364c5f;
+    --cosmic-600: #435e74;
+    --cosmic-500: #58778f;
+    --cosmic-400: #7893a9;
+    --cosmic-300: #a3b6c7;
+    --cosmic-200: #c8d3de;
+    --cosmic-100: #e3e8ee;
+    
+    --gold-500: #ffb32b;
+    --gold-400: #ffcf6b;
+    --gold-300: #ffe3a3;
+    
+    --mystic-600: #b821b5;
+    --mystic-500: #d946d7;
+    --mystic-400: #e56ee4;
+    
+    --background: var(--cosmic-950);
+    --foreground: #f3f4f6;
+    --card: var(--cosmic-900);
+    --card-foreground: #f3f4f6;
+    --primary: var(--gold-500);
+    --primary-foreground: var(--cosmic-950);
+    --secondary: var(--cosmic-800);
+    --secondary-foreground: #f3f4f6;
+    --muted: var(--cosmic-700);
+    --muted-foreground: var(--cosmic-300);
+    --accent: var(--mystic-500);
+    --accent-foreground: #f3f4f6;
+    --destructive: #7f1d1d;
+    --destructive-foreground: #f3f4f6;
+    --border: var(--cosmic-800);
+    --input: var(--cosmic-800);
+    --ring: var(--gold-500);
+    --radius: 1rem;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-cosmic-800;
   }
+  
+  html {
+    background-color: var(--cosmic-950);
+    color: #f3f4f6;
+  }
+  
   body {
-    @apply bg-background text-foreground;
+    @apply bg-cosmic-950 text-cosmic-100;
+    background-color: #0b111a !important;
+    color: #e3e8ee !important;
   }
 }
+
+/* Animation utilities for Milan results */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-from-bottom-4 {
+  from { transform: translateY(1rem); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-in {
+  animation-duration: 0.7s;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.slide-in-from-bottom-4 {
+  animation-name: slide-in-from-bottom-4;
+}
+
